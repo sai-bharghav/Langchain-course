@@ -1,3 +1,7 @@
+from typing import List
+from pydantic import BaseModel, Field
+
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -31,9 +35,21 @@ from langchain_openai import ChatOpenAI
 #     return tavily.search(query=query)
 from langchain_tavily import TavilySearch
 
+
+class Source(BaseModel):
+    """Schema for a source used by the agent"""
+
+    url:str=Field(description="The URL of the Source")
+
+class AgentResponse(BaseModel):
+    """Schema for the agent response"""
+
+    answer:str=Field(description="The answer from the agent")
+    sources:List[Source]=Field(default_factory=list,description="The list of sources used by the agent")
+
 llm = ChatOpenAI()
 tools = [TavilySearch()]
-agent = create_agent(model=llm,tools=tools)
+agent = create_agent(model=llm,tools=tools,response_format=AgentResponse)
 
 def main():
     print("Hello from langchain-course!")
