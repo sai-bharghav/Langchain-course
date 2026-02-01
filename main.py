@@ -7,6 +7,13 @@ from langchain_classic.agents.react.agent import create_react_agent
 from langchain_openai import ChatOpenAI
 from langchain_tavily import TavilySearch
 
+from langchain_core.output_parsers.pydantic import PydanticOutputParser
+from langchain_core.prompts import PromptTemplate
+from langchain_core.runnables import RunnableLambda
+from schemas import AgentResponse
+from prompt import REACT_PROMPT_WITH_FORMAT_INSTRUCTIONS
+
+
 # --- CONCEPT: THE REASONING ENGINE vs. THE EXECUTION BODY ---
 # Think of the 'Agent' as the brain: it plans what to do next.
 # Think of the 'AgentExecutor' as the body: it actually carries out those plans.
@@ -24,6 +31,23 @@ tools = [TavilySearch()]
 # not 'creative' or 'hallucinatory' when following search steps.
 llm = ChatOpenAI(model="gpt-4o", temperature=0)
 
+# --- NEW SECTION: THE TRANSLATOR (OUTPUT PARSER) ---
+# This object tells the LLM: "I need the final answer to look exactly like AgentResponse."
+# It generates a string of instructions (JSON schema) that gets added to the prompt.
+output_parser = PydanticOutputParser(pydantic_object=AgentResponse)
+
+# --- THE BLUEPRINT (PROMPT TEMPLATE) ---
+# Instead of a generic prompt, we use a custom one that includes 'format_instructions'.
+# This tells the LLM HOW to wrap its final answer in JSON so our code can read it.
+react_prompt_with_format_instructions = PromptTemplate(
+    template=REACT_PROMPT_WITH_FORMAT_INSTRUCTIONS,
+    input_variables=["tools", "tool_names", "input", "agent_scratchpad"],
+    partial_variables={
+        # This injects the Pydantic schema requirements directly into the LLM's instructions.
+        "format_instructions": output_parser.get_format_instructions()
+    }
+)
+
 # 3. THE HUB & PROMPT: The "Instructions Manual".
 # 'hub.pull' downloads a famous prompt template (hwchase17/react).
 # This template tells the LLM: "Think step-by-step using: Thought, Action, Action Input, Observation."
@@ -35,7 +59,7 @@ react_prompt = hub.pull("hwchase17/react")
 agent = create_react_agent(
     llm=llm,
     tools=tools,
-    prompt=react_prompt
+    prompt=react_prompt_with_format_instructions
 )
 
 # 5. THE EXECUTOR: The "Manager".
@@ -61,7 +85,7 @@ def main():
         }
     )
     # The 'result' will contain the final answer after the agent has finished its work.
-    print(result)
+    print(output_parser.parse(result["output"]).answer)
 
 if __name__ == "__main__":
     main()
