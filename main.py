@@ -73,8 +73,26 @@ agent_executor = AgentExecutor(
     max_iterations=5            # Security: Stops the agent if it gets stuck in an infinite search loop.
 )
 
-# We define the 'chain' as our executor so we can call it later.
-chain = agent_executor
+# --- STEP 5-1: DEFINE DATA TRANSFORMERS ---
+
+# This 'Lambda' acts as a filter. 
+# The AgentExecutor returns a big dictionary (input, history, output).
+# We only want the final string found in the 'output' key.
+extract_output = RunnableLambda(lambda x: x['output'])
+
+# This 'Lambda' acts as a converter (The Surgeon).
+# It takes the raw string from the previous step and forces it into 
+# the 'AgentResponse' Pydantic object we defined in our schemas.
+parse_output = RunnableLambda(lambda x: output_parser.parse(x))
+
+# --- STEP 5-2: ASSEMBLE THE PRODUCTION LINE ---
+
+# We use the Pipe operator (|) to link our steps together.
+# 1. 'agent_executor' does the hard work (thinking & searching).
+# 2. 'extract_output' cleans the result (removes metadata).
+# 3. 'parse_output' structures the result (converts to JSON/Object).
+chain = agent_executor | extract_output | parse_output
+
 
 def main():
     # 6. INVOCATION: Starting the engine.
@@ -85,7 +103,10 @@ def main():
         }
     )
     # The 'result' will contain the final answer after the agent has finished its work.
-    print(output_parser.parse(result["output"]).answer)
+    # print(output_parser.parse(result["output"]).answer)
+    print(result)
+
+
 
 if __name__ == "__main__":
     main()
