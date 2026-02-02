@@ -30,6 +30,18 @@ def get_text_length(text: str) -> int:
     text = text.strip("'\n").strip('"')
     return len(text)
 
+def format_log_to_str(
+        intermediate_steps: List[tuple[AgentAction, str]],
+        observation_prefix: str= "Observation: ",
+        llm_prefix:str = "Thought: "
+)->str:
+    """Construct the scratchpad that lets the agent continue its thought process."""
+    thoughts=""
+    for action,observation in intermediate_steps:
+        thoughts+=action.log
+        thoughts+= f"\n{observation_prefix}{observation}\n{llm_prefix}"
+    return thoughts
+
 if __name__ == '__main__':
     print("Hello reAct LangChain!!")
     tools = [get_text_length]
@@ -55,7 +67,7 @@ if __name__ == '__main__':
     Begin!
 
     Question: {input}
-    Thought:
+    Thought:{agent_scratchpad}
     """
 
     # .partial() fills in the tool-related variables immediately so the LLM knows its 'capabilities'.
@@ -72,16 +84,28 @@ if __name__ == '__main__':
         model='gpt-4o', 
         model_kwargs={"stop": ["\nObservation", "Observation:"]}
     )
+    intermediate_steps=[]
 
     # THE AGENT CHAIN:
     # 1. Takes 'input' string.
     # 2. Formats the ReAct prompt.
     # 3. LLM generates the "Thought" and "Action".
     # 4. Parser turns that text into an AgentAction or AgentFinish object.
-    agent = {"input": lambda x: x['input']} | prompt | llm | ReActSingleInputOutputParser()
+    agent = (
+        {
+            "input": lambda x: x['input'],
+            "agent_scratchpad": lambda x: format_log_to_str(x['agent_scratchpad'])
+        } 
+    | prompt 
+    | llm 
+    | ReActSingleInputOutputParser()
+    )
 
     # Step 1: The agent reasons and decides which tool to use.
-    agent_step: Union[AgentAction, AgentFinish] = agent.invoke({"input": "What is the length of the text 'Hello, world!'?"})
+    agent_step: Union[AgentAction, AgentFinish] = agent.invoke({"input": "What is the length of the text 'Hello, world!'?",
+                                                                "agent_scratchpad": intermediate_steps})
+    
+    print(agent_step)
     
     # agent_step.log contains the full 'Thought' and 'Action' text from the LLM.
     print(agent_step.log)
@@ -98,3 +122,4 @@ if __name__ == '__main__':
         # We print the result, which in a real loop would be fed back into the LLM 
         # for its next 'Thought' step.
         print(f'Observation: {observation}')
+        intermediate_steps.append((agent_step,observation))
