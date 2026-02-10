@@ -7,6 +7,12 @@ from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_core.messages import HumanMessage
 from langchain_pinecone import PineconeVectorStore
 
+#For RAG example we import more modules 
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.runnables import RunnablePassthrough
+from operator import itemgetter
+
+
 print('Initializing components....')
 
 llm = ChatOpenAI(temperature=0)
@@ -18,7 +24,7 @@ retriever = vectorstore.as_retriever(search_kwargs={"k": 3}) # Selecting the top
 
 
 prompt_template = ChatPromptTemplate.from_template(
-    """ANswer the question based only on the following context:
+    """Answer the question based only on the following context:
     {context}
 
     Question:{question}
@@ -52,6 +58,19 @@ def retrieval_chain_without_lcel(query:str):
     return response.content
 
 
+# Method for RAG with LCE (Language Chain Execution Language)
+def create_retrieval_chain_with_lcel():
+    """A retrieval chain that uses LCE to execute the retrieval and formatting steps"""
+
+    retrieval_chain =(
+        RunnablePassthrough.assign(
+            context = itemgetter("question") | retriever | format_docs
+        ) | prompt_template | llm | StrOutputParser()
+    )
+
+    return retrieval_chain
+
+
 
 if __name__ =='__main__':
 
@@ -72,3 +91,13 @@ if __name__ =='__main__':
     result_rag = retrieval_chain_without_lcel(query)
     print("\nAnswer")
     print(result_rag)
+
+
+    # RAG implementation with LCE
+    print("\n" + "="*70)
+    print("Implementing RAG with LCE")
+    print("="*70)
+    retrieval_chain_with_lcel = create_retrieval_chain_with_lcel()
+    result_lcel = retrieval_chain_with_lcel.invoke({"question": query})
+    print("\nAnswer")
+    print(result_lcel)
