@@ -62,3 +62,15 @@ graph=builder.compile()
 print(graph.get_graph().draw_mermaid())
 if __name__=="__main__":
     print('Hello Reflection Agent')
+
+    inputs = HumanMessage(content=""" Make this tweet better and more viral:
+        OpenClaw had already shipped 100 fixes and moved on.
+
+Security hardened. Gemini 3.1 in. Discord voice live. iOS stable. Prompt caching improved. All dropped in one silent update while the industry was busy with definitions.
+
+The most dangerous teams in any market are the ones that build in silence and let the changelog speak. No hype, no debates just code that ships.
+
+When the smartest people in the room are still talking theory, the ones executing quietly are already three steps ahead.
+""")
+    result = graph.invoke({"messages":[inputs]})
+    print(result)
