@@ -40,11 +40,13 @@ def should_continue(state: MessagesState) -> str:
     # Get the last message from conversation
     # If it does NOT contain any tool calls,
     # it means LLM is done answering.
-    if not state["messages"][LAST].tool_calls:
-        return END  # Stop execution
+    last_message = state["messages"][-1]
 
-    # If there ARE tool calls, go execute them
-    return ACT
+    # Only AI messages can contain tool_calls
+    if isinstance(last_message, AIMessage) and last_message.tool_calls:
+        return ACT
+
+    return END
 
 
 # GRAPH BUILD 

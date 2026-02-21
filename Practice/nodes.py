@@ -51,11 +51,15 @@ def agent_reasoning_node(state:MessagesState)-> MessagesState:
     4. Returns updated messages
     """
 
-    response = llm.invoke(
-    [SystemMessage(content=SYSTEM_MESSAGE)] + state["messages"]
-)
+    messages = state["messages"]
 
-    return {'messages':[response]}
+    # Only add system message if it's the first turn
+    if not any(msg.type == "system" for msg in messages):
+        messages = [SystemMessage(content=SYSTEM_MESSAGE)] + messages
+
+    response = llm.invoke(messages)
+
+    return {"messages": state["messages"] + [response]}
 
 
 ## As the homework, before the agent starts reasoning, it must first check whether the user query is safe or not 
